@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Panzerotti FC</title>
+<style>
+body { margin: 0; font-family: Arial, sans-serif; background: black; color: white; overflow-x: hidden; }
+header { position: relative; text-align: center; transition: all 0.3s ease; }
+#headerImg { width: 100%; height: 200px; object-fit: cover; transition: all 0.3s ease; position: relative; z-index: 900; }
+header.shrink #headerImg { width: 200px; height: 60px; object-fit: contain; position: fixed; top: 10px; left: 10px; }
+.logo { position: absolute; bottom: 10px; right: 10px; font-size: 14px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 8px; }
+nav { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; z-index: 1000; }
+nav ul { list-style: none; margin: 0; padding: 0; }
+nav ul li { margin: 5px 0; cursor: pointer; }
+nav ul li ul { display: none; margin-left: 15px; }
+nav ul li:hover ul { display: block; }
+.news-section { padding: 20px; overflow-x: auto; white-space: nowrap; }
+.news { display: inline-block; background: #222; margin: 5px; padding: 20px; border-radius: 10px; min-width: 200px; }
+canvas { background: black; display: block; margin: auto; }
+.game-container { display: none; text-align: center; padding: 20px; }
+.controls { margin-top: 10px; }
+.controls button { margin: 5px; padding: 10px 20px; font-size: 16px; }
+.rules { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; margin-bottom: 10px; }
+.scoreboard { margin-top: 15px; background: #111; padding: 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <!-- Qui devi solo mettere l'immagine nella cartella img con nome GLX.png -->
+  <img id="headerImg" src="img/GLX.png" alt="GLX Banner">
+  <div class="logo">Studio Panzerotti FC</div>
+</header>
+
+<nav>
+  <ul>
+    <li>Home</li>
+    <li>Rooster</li>
+    <li>La nostra storia</li>
+    <li>Merchandising</li>
+    <li>Giochi
+      <ul>
+        <li onclick="openGame('navicella')">Gioco della Navicella</li>
+        <li onclick="openGame('stellina')">Gioco della Stellina</li>
+      </ul>
+    </li>
+    <li>Contattaci</li>
+  </ul>
+</nav>
+
+<section id="home" class="news-section">
+  <h2>News</h2>
+  <div class="news">🌌 News 1 - Lancio del sito!</div>
+  <div class="news">🚀 News 2 - Nuovi giochi disponibili!</div>
+  <div class="news">🪐 News 3 - Merch in arrivo!</div>
+</section>
+
+<!-- Gioco Navicella -->
+<section id="game-navicella" class="game-container">
+  <div class="rules">🚀 Schiva i meteoriti (1 punto) e distruggi le navicelle aliene (2 punti)! Muovi con le frecce / pulsanti touch, spara con SPACE / Fuoco. Se vieni colpito ➝ Game Over.</div>
+  <canvas id="navicella" width="400" height="500"></canvas>
+  <div class="controls">
+    <button onclick="moveShip(-1)">⬅️</button>
+    <button onclick="fire()">🔥</button>
+    <button onclick="moveShip(1)">➡️</button>
+    <button onclick="returnHome()">🏠 Home</button>
+  </div>
+  <div class="scoreboard">
+    <h3>Punteggi Navicella</h3>
+    <ul id="score-navicella"></ul>
+  </div>
+</section>
+
+<!-- Gioco Stellina -->
+<section id="game-stellina" class="game-container">
+  <div class="rules">⭐ Tocca la stellina più volte possibile entro 15 secondi! Ogni click ➝ 1 punto.</div>
+  <canvas id="stellina" width="300" height="300"></canvas>
+  <div class="controls">
+    <button onclick="startStellina()">Inizia</button>
+    <button onclick="returnHome()">🏠 Home</button>
+  </div>
+  <div class="scoreboard">
+    <h3>Punteggi Stellina</h3>
+    <ul id="score-stellina"></ul>
+  </div>
+</section>
+
+<script>
+window.addEventListener("scroll", ()=>{
+  const header = document.querySelector("header");
+  if(window.scrollY > 50) header.classList.add("shrink");
+  else header.classList.remove("shrink");
+});
+
+// ========================= PAGINE =========================
+function openGame(game) {
+  document.getElementById('home').style.display = "none";
+  document.querySelectorAll('.game-container').forEach(el => el.style.display = "none");
+  document.getElementById("game-" + game).style.display = "block";
+  if(game === "navicella") startNavicella();
+}
+function returnHome(){
+  document.getElementById('home').style.display = "block";
+  document.querySelectorAll('.game-container').forEach(el => el.style.display = "none");
+  clearInterval(navInterval);
+  clearInterval(stellinaInterval);
+}
+
+// ========================= NAVICELLA =========================
+let shipX, bullets, enemies, meteors, score, ctxNav, navInterval;
+let stars = [];
+for(let i=0;i<100;i++){ stars.push({x: Math.random()*400, y: Math.random()*500, size: Math.random()*2+1, speed: Math.random()*2+1}); }
+
+function startNavicella() {
+  ctxNav = document.getElementById("navicella").getContext("2d");
+  shipX = 180; bullets = []; enemies = []; meteors = []; score = 0;
+  clearInterval(navInterval);
+  navInterval = setInterval(updateNavicella, 50);
+}
+
+function moveShip(dir) { shipX += dir * 20; if (shipX < 0) shipX = 0; if (shipX > 360) shipX = 360; }
+function fire() { bullets.push({x: shipX+18, y: 460}); }
+document.addEventListener("keydown", e => { if(e.key==="ArrowLeft") moveShip(-1); if(e.key==="ArrowRight") moveShip(1); if(e.key===" ") fire(); });
+
+function drawStars(){
+  ctxNav.fillStyle = "black"; ctxNav.fillRect(0,0,400,500);
+  ctxNav.fillStyle = "white";
+  for(let i=0;i<stars.length;i++){
+    let s = stars[i];
+    ctxNav.beginPath();
+    ctxNav.arc(s.x, s.y, s.size, 0, 2*Math.PI);
+    ctxNav.fill();
+    s.y += s.speed;
+    if(s.y>500){ s.y = 0; s.x = Math.random()*400; }
+  }
+}
+
+function drawShip(x,y){
+  ctxNav.fillStyle="cyan"; ctxNav.fillRect(x+15,y,10,30);
+  ctxNav.fillStyle="blue"; ctxNav.fillRect(x,y+10,15,20); ctxNav.fillRect(x+25,y+10,15,20);
+  ctxNav.fillStyle="orange"; ctxNav.beginPath();
+  ctxNav.moveTo(x+18,y+30); ctxNav.lineTo(x+22,y+30); ctxNav.lineTo(x+20,y+40+Math.random()*5); ctxNav.closePath(); ctxNav.fill();
+}
+
+function drawMeteor(m){
+  let gradient = ctxNav.createRadialGradient(m.x,m.y,5,m.x,m.y,15);
+  gradient.addColorStop(0,"#aaa"); gradient.addColorStop(1,"#444");
+  ctxNav.fillStyle = gradient;
+  ctxNav.beginPath(); ctxNav.arc(m.x,m.y,15,0,2*Math.PI); ctxNav.fill();
+}
+
+function drawEnemy(en){
+  ctxNav.fillStyle="red"; ctxNav.fillRect(en.x,en.y,40,20);
+  ctxNav.fillStyle="black"; ctxNav.fillRect(en.x+10,en.y+5,5,5); ctxNav.fillRect(en.x+25,en.y+5,5,5);
+}
+
+function updateNavicella() {
+  drawStars(); drawShip(shipX,460);
+  ctxNav.fillStyle="yellow";
+  for(let i=bullets.length-1;i>=0;i--){ bullets[i].y -= 10; ctxNav.fillRect(bullets[i].x, bullets[i].y, 4,10); if(bullets[i].y<0) bullets.splice(i,1); }
+  if(Math.random()<0.05) meteors.push({x:Math.random()*380, y:0});
+  for(let i=meteors.length-1;i>=0;i--){ meteors[i].y +=4; drawMeteor(meteors[i]); if(meteors[i].y>500) meteors.splice(i,1); if(meteors[i].y>460 && meteors[i].x>shipX && meteors[i].x<shipX+40) gameOver("navicella"); }
+  if(Math.random()<0.02) enemies.push({x:Math.random()*360, y:0});
+  for(let i=enemies.length-1;i>=0;i--){ enemies[i].y+=3; drawEnemy(enemies[i]); if(enemies[i].y>500) enemies.splice(i,1); if(enemies[i].y>460 && enemies[i].x<shipX+40 && enemies[i].x+40>shipX) gameOver("navicella"); }
+  for(let bi=bullets.length-1; bi>=0; bi--){
+    let b = bullets[bi];
+    for(let mi=meteors.length-1; mi>=0; mi--){ let m = meteors[mi]; if(Math.abs(b.x-m.x)<15 && Math.abs(b.y-m.y)<15){ score+=1; meteors.splice(mi,1); bullets.splice(bi,1); break; }}
+    for(let ei=enemies.length-1; ei>=0; ei--){ let en = enemies[ei]; if(b.x>en.x && b.x<en.x+40 && b.y>en.y && b.y<en.y+20){ score+=2; enemies.splice(ei,1); bullets.splice(bi,1); break; }}
+  }
+  ctxNav.fillStyle="white"; ctxNav.font="16px Arial"; ctxNav.fillText("Score: "+score,10,20);
+}
+
+function gameOver(game){
+  clearInterval(navInterval);
+  let name=prompt("Game Over! Inserisci il tuo nome:");
+  if(!name) return;
+  let scores=JSON.parse(localStorage.getItem("scores-"+game) || "[]");
+  scores.push({name,score});
+  localStorage.setItem("scores-"+game,JSON.stringify(scores));
+  showScores(game);
+}
+
+function showScores(game){
+  let scores=JSON.parse(localStorage.getItem("scores-"+game) || "[]");
+  let list=document.getElementById("score-"+game);
+  list.innerHTML="";
+  scores.sort((a,b)=>b.score-a.score).slice(0,5).forEach(s=>{ let li=document.createElement("li"); li.textContent=s.name+": "+s.score; list.appendChild(li); });
+}
+
+// ========================= STELLINA =========================
+let stellinaCtx, stellinaScore, stellinaTime, stellinaInterval, stellinaX, stellinaY;
+stellinaCtx=document.getElementById("stellina").getContext("2d");
+
+function startStellina(){
+  stellinaScore=0; stellinaTime=15; drawRandomStellina();
+  document.getElementById("stellina").onclick=(e)=>{
+    const rect=e.target.getBoundingClientRect();
+    const clickX=e.clientX-rect.left; const clickY=e.clientY-rect.top;
+    const dx=clickX-stellinaX; const dy=clickY-stellinaY;
+    if(Math.sqrt(dx*dx+dy*dy)<=50) stellinaScore++;
+    drawRandomStellina();
+  };
+  clearInterval(stellinaInterval
